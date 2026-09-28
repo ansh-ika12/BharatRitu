@@ -7,6 +7,7 @@ import { Menu, X } from 'lucide-react'
 
 const navLinks = [
   { href: '/dashboard', label: 'Dashboard' },
+  { href: '/admin', label: 'Admin' },
 ]
 
 export default function Navbar({ variant = 'transparent' }: { variant?: 'transparent' | 'solid' }) {

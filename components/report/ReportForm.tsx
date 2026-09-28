@@ -2,7 +2,8 @@
 
 import { useState, FormEvent } from 'react'
 import { MapPin, UploadCloud, Loader2, CheckCircle2 } from 'lucide-react'
-import { EVENT_TYPES } from '@/lib/constants'
+import { EVENT_TYPES, STATUS_META, ReportStatus } from '@/lib/constants'
+import { INDIAN_LOCALITIES } from '@/lib/geodata'
 
 interface FormState {
   eventType: string
@@ -32,6 +33,7 @@ export default function ReportForm() {
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [result, setResult] = useState<{ status: ReportStatus; credibility: number; merged: boolean } | null>(null)
 
   const useMyLocation = () => {
     if (!navigator.geolocation) {
@@ -61,10 +63,33 @@ export default function ReportForm() {
     if (!form.consent) return setError('Please confirm consent to submit your report.')
 
     setSubmitting(true)
-    // TODO: replace with a POST to /api/citizen-reports
-    await new Promise((resolve) => setTimeout(resolve, 900))
-    setSubmitting(false)
-    setSubmitted(true)
+    try {
+      const res = await fetch('/api/reports', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          eventType: form.eventType,
+          description: form.description,
+          locality: form.locality,
+          lat: form.lat,
+          lng: form.lng,
+          contact: form.contact,
+          hasMedia: form.fileName !== null,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setError(data.error ?? 'Something went wrong. Please try again.')
+        setSubmitting(false)
+        return
+      }
+      setResult({ status: data.report.status, credibility: data.report.credibility, merged: data.merged })
+      setSubmitted(true)
+    } catch {
+      setError('Could not reach the server. Please check your connection and try again.')
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   if (submitted) {
@@ -75,8 +100,15 @@ export default function ReportForm() {
         <p className="mt-2 font-body text-sm text-brand-brown/70">
           धन्यवाद! आपकी रिपोर्ट सत्यापन के लिए भेज दी गई है। · Thank you — your report is now in the verification queue and will appear on the dashboard once checked.
         </p>
+        {result && (
+          <div className="mx-auto mt-5 inline-flex items-center gap-2 rounded-full border border-brand-brown/10 bg-brand-cream px-4 py-1.5 text-xs font-semibold" style={{ color: STATUS_META[result.status].color }}>
+            <span className="h-2 w-2 rounded-full" style={{ backgroundColor: STATUS_META[result.status].color }} />
+            {result.merged ? 'Merged with an existing report' : STATUS_META[result.status].label}
+            <span className="text-brand-brown/50">· {Math.round(result.credibility * 100)}% credible</span>
+          </div>
+        )}
         <button
-          onClick={() => { setForm(initialState); setSubmitted(false) }}
+          onClick={() => { setForm(initialState); setSubmitted(false); setResult(null) }}
           className="mt-6 rounded-full bg-brand-brown px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-brown/90"
         >
           Submit another report
@@ -122,11 +154,17 @@ export default function ReportForm() {
           <input
             id="locality"
             type="text"
+            list="locality-options"
             value={form.locality}
             onChange={(e) => setForm((f) => ({ ...f, locality: e.target.value }))}
             placeholder="Locality, city"
             className="mt-2 w-full rounded-xl border border-brand-brown/20 p-3 text-sm text-brand-brown placeholder:text-brand-brown/40 focus:outline-none focus:ring-2 focus:ring-brand-brown/30"
           />
+          <datalist id="locality-options">
+            {INDIAN_LOCALITIES.map((loc) => (
+              <option key={loc.name} value={loc.name}>{`${loc.name}, ${loc.state}`}</option>
+            ))}
+          </datalist>
           <button type="button" onClick={useMyLocation} disabled={locating} className="mt-2 flex items-center gap-1.5 text-xs font-semibold text-brand-brown/70 hover:text-brand-brown">
             {locating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <MapPin className="h-3.5 w-3.5" />}
             {form.lat !== null ? 'GPS location captured' : 'Use my current location'}

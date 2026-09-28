@@ -1,4 +1,5 @@
 import { EventType, ReportStatus } from './constants'
+import { CredibilityBreakdown } from './credibility'
 
 export interface Report {
   id: string
@@ -15,6 +16,8 @@ export interface Report {
   authorCount: number
   text: string
   minutesAgo: number
+  credibilityBreakdown?: CredibilityBreakdown
+  verificationNote?: string
 }
 
 export const MOCK_REPORTS: Report[] = [

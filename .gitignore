@@ -24,6 +24,9 @@
 .DS_Store
 *.pem
 
+# runtime report store (regenerates from lib/mockReports.ts seed data)
+/data/reports.json
+
 # debug
 npm-debug.log*
 yarn-debug.log*
